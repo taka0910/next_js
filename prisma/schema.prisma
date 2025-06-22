@@ -1,0 +1,337 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(uuid())
+  name            String
+  email           String          @unique
+  passwordHash    String
+  mbtiType        String?
+  avatar          String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Couple relationship
+  coupleId        String?
+  couple          Couple?         @relation(fields: [coupleId], references: [id])
+
+  // User-specific data
+  tasks           Task[]
+  wishlistItems   WishlistItem[]
+  diaries         Diary[]
+  places          Place[]
+  menus           Menu[]
+  financeRecords  FinanceRecord[]
+  chatMessages    ChatMessage[]
+  aiSessions      AISession[]
+  thanksPoints    ThanksPoint[]
+  rewards         Reward[]
+  
+  // Profile data
+  dietaryPreference DietaryPreference?
+  valuesProfile   ValuesProfile?
+
+  @@map("users")
+}
+
+model Couple {
+  id                String       @id @default(uuid())
+  relationshipStart DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Users in this couple
+  users             User[]
+
+  // Shared data
+  anniversaries     Anniversary[]
+  calendarEvents    CalendarEvent[]
+  chatMessages      ChatMessage[]
+  financeRecords    FinanceRecord[]
+  aiSessions        AISession[]
+  places            Place[]
+
+  @@map("couples")
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  dueDate     DateTime?
+  recurring   String?   // "daily", "weekly", "monthly", etc.
+  points      Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("tasks")
+}
+
+model ThanksPoint {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  action      String   // What action earned the points
+  points      Int
+  description String?
+  
+  createdAt   DateTime @default(now())
+
+  @@map("thanks_points")
+}
+
+model Reward {
+  id          String   @id @default(uuid())
+  userId      String   // Owner of the reward
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  pointsCost  Int
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("rewards")
+}
+
+model WishlistItem {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  price       Int?     // Price in cents
+  priority    String   // "high", "medium", "low"
+  category    String
+  url         String?
+  achieved    Boolean  @default(false)
+  achievedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("wishlist_items")
+}
+
+model Place {
+  id          String   @id @default(uuid())
+  userId      String?  // Who added it
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupleId    String?  // Shared places
+  couple      Couple?  @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  category    String
+  rating      Float?
+  visited     Boolean  @default(false)
+  visitedAt   DateTime?
+  
+  likes       PlaceLike[]
+  comments    PlaceComment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("places")
+}
+
+model PlaceLike {
+  id       String @id @default(uuid())
+  placeId  String
+  place    Place  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId   String
+  
+  createdAt DateTime @default(now())
+
+  @@unique([placeId, userId])
+  @@map("place_likes")
+}
+
+model PlaceComment {
+  id       String @id @default(uuid())
+  placeId  String
+  place    Place  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId   String
+  
+  content  String
+  createdAt DateTime @default(now())
+
+  @@map("place_comments")
+}
+
+model Menu {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  ingredients Json     // Array of ingredients
+  calories    Int?
+  protein     Float?   // in grams
+  fat         Float?   // in grams
+  carbs       Float?   // in grams
+  cost        Int?     // in cents
+  cookingTime Int?     // in minutes
+  allergens   Json?    // Array of allergens
+  tags        Json?    // Array of tags
+  
+  createdAt   DateTime @default(now())
+
+  @@map("menus")
+}
+
+model DietaryPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  allergies   Json?    // Array of allergies
+  dislikes    Json?    // Array of disliked foods
+  preferences Json?    // Diet preferences (vegetarian, etc.)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("dietary_preferences")
+}
+
+model Diary {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String
+  content   String
+  mood      String?
+  photos    Json?    // Array of photo URLs
+  isPublic  Boolean  @default(true) // Visible to partner
+  
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diaries")
+}
+
+model FinanceRecord {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupleId  String?
+  couple    Couple?  @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  
+  category  String   // "food", "utilities", "rent", etc.
+  amount    Int      // Amount in cents
+  type      String   // "income" or "expense"
+  description String?
+  paidBy    String   // "user" or "partner"
+  
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  @@map("finance_records")
+}
+
+model Anniversary {
+  id          String   @id @default(uuid())
+  coupleId    String
+  couple      Couple   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  
+  title       String
+  date        DateTime
+  description String?
+  isRecurring Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("anniversaries")
+}
+
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  coupleId    String
+  couple      Couple   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  location    String?
+  type        String   // "anniversary", "date", "health", "personal", "other"
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("calendar_events")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  coupleId  String
+  couple    Couple   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  content   String
+  type      String   @default("text") // "text", "image", "sticker"
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+model ValuesProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  mbtiType        String
+  loveLanguages   Json?    // Array of love languages
+  likes           Json?    // Things they like
+  dislikes        Json?    // Things they dislike
+  sensitiveTopics Json?    // Topics to be careful about
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("values_profiles")
+}
+
+model AISession {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  coupleId  String?
+  couple    Couple?  @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  
+  type      String   // "consultation", "menu", "advice"
+  input     String
+  response  String
+  sentiment String?  // Risk level assessment
+  
+  createdAt DateTime @default(now())
+
+  @@map("ai_sessions")
+}
